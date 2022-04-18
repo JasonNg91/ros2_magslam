@@ -1,0 +1,6 @@
+magmap:
+  ros__parameters:
+    sensor_frame: "xsens_link"
+    world_frame: "world"
+    mag_topic: "imu/mag"
+    boundaries: [2.5, 2.5, 1.0]

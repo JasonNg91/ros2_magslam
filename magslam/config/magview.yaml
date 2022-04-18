@@ -1,0 +1,4 @@
+magview:
+  ros__parameters:
+    sensor_frame: "xsens_link"
+    world_frame: "world"

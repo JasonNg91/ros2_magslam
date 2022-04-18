@@ -1,0 +1,4 @@
+float64[] pos	# Position input
+---
+float64[] mean	# Magfield response
+float64[] cov
