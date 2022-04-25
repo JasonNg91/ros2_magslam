@@ -28,13 +28,7 @@ import csv
 def timeToFloat(t):
 	return t.sec + t.nanosec/1000000000
 
-# Quaternion to rotation matrix
-def rotationMatrix(q):
-	return [[1 - 2*q.y**2 - 2*q.z**2, 2*q.x*q.y - 2*q.w*q.z,   2*q.x*q.z + 2*q.w*q.y],
-		[2*q.x*q.y + 2*q.w*q.z,   1 - 2*q.x**2 - 2*q.z**2, 2*q.y*q.z - 2*q.w*q.x],
-		[2*q.x*q.z - 2*q.w*q.y,   2*q.y*q.z + 2*q.w*q.x,   1 - 2*q.x**2 - 2*q.y**2]]
-
-
+# Hamilton product
 def hamprod(quaternion1, quaternion0):
     w0, x0, y0, z0 = quaternion0
     w1, x1, y1, z1 = quaternion1
@@ -43,6 +37,7 @@ def hamprod(quaternion1, quaternion0):
                      -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
                      x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0], dtype=np.float64)
 
+# Rotate 3d vector by quaternion
 def rotateVector(vector, R):
 	p = [0, vector[0], vector[1], vector[2]]
 
@@ -185,24 +180,28 @@ class Magmap(Node):
 		if (stamp > self.prevTransStamp):
 			self.prevTransStamp = stamp		# Save this timestamp to check the flow of time next time
 			self.transBuffer.append(trans)	# Add the transform to the list of transforms
-			self.findMatch()			# Look for matches of magnetic fields and positions by timestamp
+			self.findMatch()				# Look for matches of magnetic fields and positions by timestamp
 	
 	# Functon to match magnetic fields and positions to each other for the smallest timestamp difference
 	def findMatch(self):
 		newMagBuffer = self.magBuffer
 		newTransBuffer = self.transBuffer
 
+		# Loop through all transforms in buffer
 		for trans_i in range(len(self.transBuffer)):
 			transStamp = timeToFloat(self.transBuffer[trans_i].header.stamp)
 
+			# Loop through all magnetic fields in buffer to find closest in time
 			for mag_i in range(len(self.magBuffer) - 1):
 				magStampA = timeToFloat(self.magBuffer[mag_i].header.stamp)
 				magStampB = timeToFloat(self.magBuffer[mag_i+1].header.stamp)
 
+				# Check if the transform timestamp is inbetween the magnetic fields
 				if magStampA < transStamp and magStampB > transStamp:
 					dStampA = transStamp - magStampA
 					dStampB = magStampB - transStamp
 
+					# Pick the closest magnetic field, add to map, remove older magnetic fields from buffer
 					if dStampA < dStampB:
 						magr, magw, pos = self.addPair(self.magBuffer[mag_i], self.transBuffer[trans_i])
 						newMagBuffer = self.magBuffer[mag_i+1:]
@@ -212,8 +211,10 @@ class Magmap(Node):
 						newMagBuffer = self.magBuffer[mag_i+2:]
 						self.printStatus(dStampB, transStamp, magr, magw, pos)
 
+					# Remove older transforms from buffer
 					newTransBuffer = self.transBuffer[trans_i+1:]
 
+		# Update buffers
 		self.transBuffer = newTransBuffer
 		self.magBuffer = newMagBuffer
 
@@ -223,12 +224,10 @@ class Magmap(Node):
 		magR = [mag_msg.magnetic_field.x, mag_msg.magnetic_field.y, mag_msg.magnetic_field.z]
 		pos = [tf_msg.transform.translation.x, tf_msg.transform.translation.y, tf_msg.transform.translation.z]
 
-		#Rotate magnetic field in world frame
-		#rotMat = rotationMatrix(tf_msg.transform.rotation)
-		#magW = np.dot(magR, rotMat)
-
+		# Rotate magnetic field to world frame
 		magW = rotateVector(magR, tf_msg.transform.rotation)
 
+		# Row of data to be written to CSV log
 		log_row = [self.mode, 
 					timeToFloat(tf_msg.header.stamp), tf_msg.transform.translation.x, tf_msg.transform.translation.y, tf_msg.transform.translation.z,
 					tf_msg.transform.rotation.x, tf_msg.transform.rotation.y, tf_msg.transform.rotation.z, tf_msg.transform.rotation.w,
@@ -245,12 +244,12 @@ class Magmap(Node):
 			self.covs.append(cov)					# Prediciton covariance
 			self.actual.append(magW)				# Actual field
 			self.testSize = self.testSize + 1
-			log_row.extend(mean)
+			log_row.extend(mean)					# Add mean and convariance to log row
 			log_row.extend(cov)
 
-		self.calcTime = time.time() - calcStart
+		self.calcTime = time.time() - calcStart		# Store calculation time to show in UI
 
-		self.log_writer.writerow(log_row)
+		self.log_writer.writerow(log_row)			# Write data to log
 
 		return magR, magW, pos
 	
@@ -279,25 +278,27 @@ class Magmap(Node):
 		
 		self.prevStamp = stamp
 
+	# Update share memory and publish identifiers over a topic
 	def pubGPMem(self):
 		GPPubStart = time.time()
 		
-		self.sharedMu[:] = self.magmap.mu[:]
+		self.sharedMu[:] = self.magmap.mu[:]			# Copy data from magmap to array which will be shared
 		self.sharedSigma[:] = self.magmap.Sigma[:]
 
-		GPMsg = MagGPMem()
+		GPMsg = MagGPMem()								# Custom MagGPMem message type
 		
-		GPMsg.sigma_name = self.SigmaMem.name
-		GPMsg.sigma_dim = self.sharedSigma.shape[0]
-		GPMsg.mu_name = self.muMem.name
-		GPMsg.mu_dim = self.sharedMu.shape[0]
+		GPMsg.sigma_name = self.SigmaMem.name			# Mu address identifier
+		GPMsg.sigma_dim = self.sharedSigma.shape[0]		# Mu data length
+		GPMsg.mu_name = self.muMem.name					# Sigma address identifier
+		GPMsg.mu_dim = self.sharedMu.shape[0]			# Sigma data length
 
-		GPMsg.boundaries = self.boundaries
+		GPMsg.boundaries = self.boundaries				# Add map boundaries to message, todo: add other GP parameters
 
-		self.GPPub.publish(GPMsg)
+		self.GPPub.publish(GPMsg)						# Publish message
 
-		self.GPPubTime = time.time() - GPPubStart
+		self.GPPubTime = time.time() - GPPubStart		# Store calculation time to show in UI
 
+	# Magnetic field estimate request service
 	def getMagCallback(self, request, response):
 		mean, cov = self.magmap.predict(np.array(request.pos))
 

@@ -12,6 +12,7 @@ using std::placeholders::_1;
 
 #define PI 3.14159265358979323846
 
+/// Function to generate a grid path
 std::vector<std::vector<float>> generateGrid(float xmin, float ymin, float xmax, float ymax, float gridsize, float sensorY){
 	std::vector<std::vector<float>> waypoints;
 
@@ -53,20 +54,20 @@ public:
 	: Node("driver") {
 		RCLCPP_INFO(this->get_logger(), "Magdrive starting");
 		
+		// Subscribe to positions from OptiTrack
 		pose_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
 		"Robot_1/pose", 10, std::bind(&Driver::pose_callback, this, _1));
 		RCLCPP_INFO(this->get_logger(), "Setup subscriber");
 		
+		// Publisher for robot control
 		cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 		RCLCPP_INFO(this->get_logger(), "Setup publisher");
 	}
 
 private:
-	int curTarget = 0;
+	float sensorY = -0.100;		// Correction for sensor position off robot center
 
-	float sensorY = -0.100;
-
-	//Square
+	//Square path
 	/*std::vector<std::vector<float>> waypoints = {
 		{1.0 - sensorY, 1.0 - sensorY}, 
 		{-1.0 + sensorY, 1.0 - sensorY}, 
@@ -74,7 +75,7 @@ private:
 		{1.0 - sensorY, -1.0 + sensorY}
 	};*/
 
-	//Square invert
+	//Square path, testing in opposite direction
 	/*std::vector<std::vector<float>> waypoints = {
 		{1.0 - sensorY, 1.0 - sensorY}, 
 		{-1.0 + sensorY, 1.0 - sensorY}, 
@@ -86,43 +87,50 @@ private:
 		{-1.0 - sensorY, 1.0 + sensorY}
 	};*/
 
+	//Grid path
 	std::vector<std::vector<float>> waypoints = generateGrid(-1.5, -1.5, 1.5, 1.5, 0.5, sensorY);
+	
+	int curTarget = 0;			// Index of current target in waypoints vector
 
+	// When a position is received send move commands to robot
 	void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg){
-		const float x = pose_msg->pose.position.x;
-		const float y = pose_msg->pose.position.y;
-		
+		// Get orientation and convert to RPY via rotation matrix
 		tf2::Quaternion q(pose_msg->pose.orientation.x, pose_msg->pose.orientation.y, pose_msg->pose.orientation.z, pose_msg->pose.orientation.w);
 		tf2::Matrix3x3 m(q);
 
 		double roll, pitch, yaw;
 		m.getRPY(roll, pitch, yaw);
 
-		const float dx = waypoints[curTarget][0] - x;
-		const float dy = waypoints[curTarget][1] - y;
+		// Deviation from target position
+		const float dx = waypoints[curTarget][0] - pose_msg->pose.position.x;
+		const float dy = waypoints[curTarget][1] - pose_msg->pose.position.y;;
 		
+		// Target direction pointing to target position
 		const double targetYaw=atan2(dy, dx);
 		
-		geometry_msgs::msg::Twist cmd_msg;
-
+		// Deviation from target yaw
 		double yawDiff = targetYaw - yaw;
-
 		if (yawDiff < -PI) yawDiff += 2*PI;
 		if (yawDiff > PI) yawDiff -= 2*PI;
 
-		cmd_msg.angular.z = yawDiff * 3.0;
+		geometry_msgs::msg::Twist cmd_msg;
 
+		// Calculate turning speed
+		cmd_msg.angular.z = yawDiff * 3.0;
 		if (cmd_msg.angular.z > 1.0) cmd_msg.angular.z = 1.0;
 		if (cmd_msg.angular.z < -1.0) cmd_msg.angular.z = -1.0;
 
+		// Distance to target
 		const float distance = sqrt(pow(dx, 2) + pow(dy, 2));
-
+		
+		// Drive forward if direction is about correct
 		if (abs(yawDiff) < 0.1){
 			cmd_msg.linear.x = distance * 2.0;
 
-			if (cmd_msg.linear.x > 0.5)	cmd_msg.linear.x = 0.5;
+			if (cmd_msg.linear.x > 0.5)	cmd_msg.linear.x = 0.5;		// Limit linear speed
 		}
 
+		// If the target is reached set next target
 		if (distance < 0.025){
 			curTarget++;
 			if (curTarget >= waypoints.size()) curTarget = 0;

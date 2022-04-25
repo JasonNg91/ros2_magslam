@@ -49,8 +49,6 @@ class Magview(Node):
 		
 		# Variable to know if a GP has already been received
 		self.GPReady = False
-		
-		#plt.ion()
 
 		#Figure and plot
 		self.fig = plt.figure('Magmap',figsize=(12,12))
@@ -91,8 +89,8 @@ class Magview(Node):
 
 		self.startTime = time.time()
 
+	# Plot and save magmap with and without path
 	def plot(self):
-		#self.updateMap()
 
 		self.ax.clear()
 		transparencyHeatMap(self.minVals, self.maxVals, self.pos_xy, self.predictd_seq, self.fig, self.ax)
@@ -103,11 +101,12 @@ class Magview(Node):
 
 		self.ax.plot(self.path[1:,0],self.path[1:,1],color=(0.5, 0.5, 0.5, 0.5))
 
-		#plt.pause(0.01)
+		plt.pause(0.01)
 		plt.savefig('mapframes/frame' + str(self.framenr) + "_" + str(imTime) + '.png', transparent=True)
 
 		self.framenr += 1
 
+	# Retrieve GP from shared memory
 	def updateGPMem(self, gp_msg):
 		if (self.GPReady):
 			if (self.mapThread.is_alive() == False):
@@ -125,6 +124,7 @@ class Magview(Node):
 			self.get_logger().info('GP Initiated.')
 			self.updateGPMem(gp_msg)
 
+	# Calculate new magnetic field estimates
 	def updateMap(self):
 		print("Map update thread started")
 
@@ -134,6 +134,7 @@ class Magview(Node):
 
 		print("Map update done, elapsed time (s):{}".format(end - start))
 
+	# Add last known position to traveled path
 	def updatePath(self):
 		try:
 			now = rclpy.time.Time()
@@ -150,11 +151,13 @@ def main(args=None):
 
 	magview = Magview()
 
+	# Run node till keyboard interrupt
 	try:
 		rclpy.spin(magview)
 	except KeyboardInterrupt:
 		print("Shutting down cleanly")
 
+	# Close shared memory
 	magview.SigmaMem.close()
 	magview.muMem.close()
 	print("Closed shared memory")
