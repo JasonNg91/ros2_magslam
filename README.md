@@ -19,7 +19,7 @@ A log is written to maglog.csv in the current folder. Each row contains the foll
 </table>
 
 ### magview.launch.py
-Lunaches the magnetic field visualisation node (magview) with the parameters set in magslam/config/magview.yaml. The sensor_frame and world_frame parameters should be set to the same values as in magslam/config/magmap.yaml.
+Launches the magnetic field visualisation node (magview) with the parameters set in magslam/config/magview.yaml. The sensor_frame and world_frame parameters should be set to the same values as in magslam/config/magmap.yaml.
 
 While magview is running each frame is saved to mapframes/frame/[number].png relative to the current folder. Frames without the traveled path overlay are saved to mapframes/nopath/frame[number]\_[stamp].png. 
 
