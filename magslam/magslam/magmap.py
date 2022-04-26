@@ -54,24 +54,10 @@ class Magmap(Node):
 		super().__init__('magmap')
 
 		# Parameter setup
-		self.declare_parameter('sensor_frame', 'imu_link')
-		self.sensorFrame = self.get_parameter('sensor_frame').get_parameter_value().string_value
-		self.get_logger().info('sensor_frame: ' + self.sensorFrame)
-		
-		self.declare_parameter('world_frame', 'odom')
-		self.worldFrame = self.get_parameter('world_frame').get_parameter_value().string_value
-		self.get_logger().info('world_frame: ' + self.worldFrame)
-		
-		self.declare_parameter('mag_topic','imu/mag')
-		self.magTopic = self.get_parameter('mag_topic').get_parameter_value().string_value
-		self.get_logger().info('mag_topic: ' + self.magTopic)
-		
-		self.declare_parameter('boundaries',[2.5, 2.5, 1.0])
-		self.boundaries = self.get_parameter('boundaries').value
-		self.get_logger().info('boundaries: ' + str(self.boundaries))
+		self.getParams()
 		
 		# The magmap object handles training and estimations
-		self.magmap = GPMagMap(self.boundaries)
+		self.magmap = GPMagMap(self.boundaries, self.m_basis, self.lin_var, self.stat_var, self.stat_ls, self.lik_var)
 
 		# Mode subscription, valid modes are 'train', 'test', and 'none'
 		self.mode_sub = self.create_subscription(
@@ -130,6 +116,44 @@ class Magmap(Node):
 		self.log_writer = csv.writer(self.log_file)
 
 		self.get_logger().info('Magmap node initiated.')
+
+	# Function to retrieve all applicable ROS parameters
+	def getParams(self):
+		self.declare_parameter('sensor_frame', 'imu_link')
+		self.sensorFrame = self.get_parameter('sensor_frame').get_parameter_value().string_value
+		self.get_logger().info('sensor_frame: ' + self.sensorFrame)
+		
+		self.declare_parameter('world_frame', 'odom')
+		self.worldFrame = self.get_parameter('world_frame').get_parameter_value().string_value
+		self.get_logger().info('world_frame: ' + self.worldFrame)
+		
+		self.declare_parameter('mag_topic','imu/mag')
+		self.magTopic = self.get_parameter('mag_topic').get_parameter_value().string_value
+		self.get_logger().info('mag_topic: ' + self.magTopic)
+		
+		self.declare_parameter('boundaries',[2.5, 2.5, 1.0])
+		self.boundaries = self.get_parameter('boundaries').value
+		self.get_logger().info('boundaries: ' + str(self.boundaries))
+		
+		self.declare_parameter('m_basis',1000)
+		self.m_basis = self.get_parameter('m_basis').value
+		self.get_logger().info('m_basis: ' + str(self.m_basis))
+		
+		self.declare_parameter('lin_var',1.0)
+		self.lin_var = self.get_parameter('lin_var').value
+		self.get_logger().info('lin_var: ' + str(self.lin_var))
+		
+		self.declare_parameter('stat_var',0.005)
+		self.stat_var = self.get_parameter('stat_var').value
+		self.get_logger().info('stat_var: ' + str(self.stat_var))
+		
+		self.declare_parameter('stat_ls',0.2)
+		self.stat_ls = self.get_parameter('stat_ls').value
+		self.get_logger().info('stat_ls: ' + str(self.stat_ls))
+		
+		self.declare_parameter('lik_var',0.02)
+		self.lik_var = self.get_parameter('lik_var').value
+		self.get_logger().info('lik_var: ' + str(self.lik_var))
 		
 	# Called when a new message is received on the mode topic
 	def modeCallback(self, string_msg):
@@ -292,7 +316,12 @@ class Magmap(Node):
 		GPMsg.mu_name = self.muMem.name					# Sigma address identifier
 		GPMsg.mu_dim = self.sharedMu.shape[0]			# Sigma data length
 
-		GPMsg.boundaries = self.boundaries				# Add map boundaries to message, todo: add other GP parameters
+		GPMsg.boundaries = self.boundaries				# Add GP parameters to message
+		GPMsg.m_basis = self.m_basis
+		GPMsg.lin_var = self.lin_var
+		GPMsg.stat_var = self.stat_var
+		GPMsg.stat_ls = self.stat_ls
+		GPMsg.lik_var = self.lik_var
 
 		self.GPPub.publish(GPMsg)						# Publish message
 

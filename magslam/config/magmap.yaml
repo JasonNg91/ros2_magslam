@@ -4,3 +4,8 @@ magmap:
     world_frame: "world"
     mag_topic: "imu/mag"
     boundaries: [2.5, 2.5, 1.0]    # Map boundaries in meters around world_frame
+    m_basis: 1000                  # Number of basis functions
+    lin_var: 1.0                   # Linear kernel variance
+    stat_var: 0.005                # Stationary kernel variance
+    stat_ls: 0.2                   # Stationary kernel lengthscale
+    lik_var: 0.02                  # Likelyhood variance

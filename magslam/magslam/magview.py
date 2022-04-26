@@ -119,7 +119,7 @@ class Magview(Node):
 				self.mapThread = threading.Thread(target=self.updateMap)
 				self.mapThread.start()
 		else:
-			self.magmap = GPMagMap(gp_msg.boundaries)
+			self.magmap = GPMagMap(gp_msg.boundaries, gp_msg.m_basis, gp_msg.lin_var, gp_msg.stat_var, gp_msg.stat_ls, gp_msg.lik_var)
 			self.GPReady = True
 			self.get_logger().info('GP Initiated.')
 			self.updateGPMem(gp_msg)
