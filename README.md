@@ -28,7 +28,10 @@ Launches the csv_feed node with the parameters set in magslam/config/csv_feed.ya
 
 ## magdrive package
 ### driver
-The driver node can be used to command a ground robot to drive along a predetermined mapping path. The pose is obtained as a geometery_msgs/PoseStamped from Robot_1/pose. The drive commands are published as a geometry_msgs/Twist to cmd/vel. This node has no config file (yet), configuration can be done in the sourcecode in magdrive/src/driver.cpp
+The driver node can be used to command a ground robot to drive along a predetermined mapping path. The pose is obtained as a geometery_msgs/PoseStamped from Robot_1/pose. The drive commands are published as a geometry_msgs/Twist to cmd/vel. Three launch files with preset paths are included: 
+* rectangle.launch.py
+* rectangle_invert.launch.py
+* grid.launch.py
 
 ## magslam_msgs package
 This package contains the custom message types and services used by the magslam package.
