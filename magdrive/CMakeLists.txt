@@ -27,7 +27,15 @@ ament_target_dependencies(driver rclcpp geometry_msgs tf2)
 
 install(TARGETS
   driver
-  DESTINATION lib/${PROJECT_NAME})
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY
+  launch
+  config
+  DESTINATION share/${PROJECT_NAME}
+)
 
 
 ament_package()

@@ -62,33 +62,76 @@ public:
 		// Publisher for robot control
 		cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
 		RCLCPP_INFO(this->get_logger(), "Setup publisher");
+
+		// Parameters
+		RCLCPP_INFO(this->get_logger(), "Retrieving parameters");
+
+		std::string pathMode;
+		float xMin;
+		float yMin;
+		float xMax;
+		float yMax;
+		float density;
+		float sensorY;
+
+		this->declare_parameter<std::string>("path_mode", "rectangle");
+		this->declare_parameter<float>("x_min", -1.0);
+		this->declare_parameter<float>("y_min", -1.0);
+		this->declare_parameter<float>("x_max", 1.0);
+		this->declare_parameter<float>("y_max", 1.0);
+		this->declare_parameter<float>("sensor_y", 0.0);
+
+		this->get_parameter("path_mode", pathMode);
+		this->get_parameter("x_min", xMin);
+		this->get_parameter("y_min", yMin);
+		this->get_parameter("x_max", xMax);
+		this->get_parameter("y_max", yMax);
+		this->get_parameter("density", density);
+		this->get_parameter("sensor_y", sensorY);
+		
+		RCLCPP_INFO(this->get_logger(), "path_mode: %s", pathMode.c_str());
+		RCLCPP_INFO(this->get_logger(), "x_min: %.2f", xMin);
+		RCLCPP_INFO(this->get_logger(), "y_min: %.2f", yMin);
+		RCLCPP_INFO(this->get_logger(), "x_max: %.2f", xMax);
+		RCLCPP_INFO(this->get_logger(), "y_max: %.2f", yMax);
+		RCLCPP_INFO(this->get_logger(), "density: %.2f", density);
+		RCLCPP_INFO(this->get_logger(), "sensor_y: %.2f", sensorY);
+
+		// Calculate path
+		if (pathMode == "rectangle") {
+			//Square path
+			waypoints = {
+				{xMax - sensorY, yMax - sensorY}, 
+				{xMin + sensorY, yMax - sensorY}, 
+				{xMin + sensorY, yMin + sensorY}, 
+				{xMax - sensorY, yMin + sensorY}
+			};
+		}
+		else if (pathMode == "rectangle_invert") {
+			//Square path, testing in opposite direction
+			waypoints = {
+				{xMax - sensorY, yMax - sensorY}, 
+				{xMin + sensorY, yMax - sensorY}, 
+				{xMin + sensorY, yMin + sensorY}, 
+				{xMax - sensorY, yMin + sensorY},
+				{xMax + sensorY, yMax + sensorY}, 
+				{xMax + sensorY, yMin - sensorY},
+				{xMin - sensorY, yMin - sensorY}, 
+				{xMin - sensorY, yMax + sensorY}
+			};
+		}
+		else if (pathMode == "grid"){
+			//Grid path
+			waypoints = generateGrid(xMin, yMin, xMax, yMax, density, sensorY);
+		}
+		else {
+			RCLCPP_ERROR(this->get_logger(), "Invalid path_mode");
+
+		}
 	}
 
 private:
-	float sensorY = -0.100;		// Correction for sensor position off robot center
-
-	//Square path
-	/*std::vector<std::vector<float>> waypoints = {
-		{1.0 - sensorY, 1.0 - sensorY}, 
-		{-1.0 + sensorY, 1.0 - sensorY}, 
-		{-1.0 + sensorY, -1.0 + sensorY}, 
-		{1.0 - sensorY, -1.0 + sensorY}
-	};*/
-
-	//Square path, testing in opposite direction
-	/*std::vector<std::vector<float>> waypoints = {
-		{1.0 - sensorY, 1.0 - sensorY}, 
-		{-1.0 + sensorY, 1.0 - sensorY}, 
-		{-1.0 + sensorY, -1.0 + sensorY}, 
-		{1.0 - sensorY, -1.0 + sensorY},
-		{1.0 + sensorY, 1.0 + sensorY}, 
-		{1.0 + sensorY, -1.0 - sensorY},
-		{-1.0 - sensorY, -1.0 - sensorY}, 
-		{-1.0 - sensorY, 1.0 + sensorY}
-	};*/
-
-	//Grid path
-	std::vector<std::vector<float>> waypoints = generateGrid(-1.5, -1.5, 1.5, 1.5, 0.5, sensorY);
+	std::vector<std::vector<float>> waypoints;
 	
 	int curTarget = 0;			// Index of current target in waypoints vector
 

@@ -1,6 +1,6 @@
 csv_feed:
   ros__parameters:
-    csv_path: "/home/thijs/magcsv/rosbag2_2021-12-09_15-05-39_2xRectangleRounded_0.csv"
+    csv_path: "/home/thijs/magcsv/mount1_grid2.csv"
     interval: 0.025
     train_ratio: 0.55             # Part of data to use for training, remainder is used for testing
     sensor_frame: "xsens_link"
